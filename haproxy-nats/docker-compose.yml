@@ -36,6 +36,10 @@ services:
       - 1936:1936
     expose:
       - 6222
+    depends_on:
+      - nats-streaming-a
+      - nats-streaming-b
+      - nats-streaming-c
     volumes:
       - ./haproxy.cfg:/haproxy.cfg:ro
     entrypoint: haproxy -f /haproxy.cfg
