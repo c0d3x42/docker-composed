@@ -1,0 +1,155 @@
+version: '3'
+services:
+#  nats:
+#    image: nats:latest
+#    networks: 
+#      - panther
+#    ports:
+#      - 14222:4222
+#      - 18222:8222
+
+  rsyslogd:
+    container_name: rsyslogd
+    build:
+      context: Dockerfiles/rsyslogd
+    hostname: rsyslogd
+    networks: 
+      panther:
+        aliases:
+          - rsyslog
+          - syslog
+    expose:
+      - 514
+    volumes:
+      - logs:/logs:rw
+
+  haproxy:
+    container_name: haproxy
+    image: haproxy
+    hostname: haproxy
+    networks:
+      panther:
+        aliases:
+          - hap
+    ports:
+      - 4222:4222
+      - 1936:1936
+    expose:
+      - 6222
+    volumes:
+      - ./haproxy.cfg:/haproxy.cfg:ro
+    entrypoint: haproxy -f /haproxy.cfg
+
+  nats-streaming-a:
+    container_name: stan-a
+    image: nats-streaming:latest
+    hostname: stan-a
+    command: "-sc /cluster-a.conf --cluster_raft_logging -SD -D -l /log/stan-a"
+    networks: 
+      panther:
+        aliases:
+          - a
+          - "stan-a"
+    expose:
+      - 4222
+      - 6222
+      - 8222
+    volumes:
+      - ./stan/cluster-a.conf:/cluster-a.conf
+      - store:/store
+      - logs:/log
+
+  nats-streaming-b:
+    container_name: stan-b
+    image: nats-streaming:latest
+    hostname: stan-b
+    command: "-sc /cluster-b.conf --cluster_raft_logging -SD -D -l /log/stan-b"
+    networks: 
+      panther:
+        aliases:
+          - b
+          - "stan-b"
+    expose:
+      - 4222
+      - 6222
+      - 8222
+    volumes:
+      - ./stan/cluster-b.conf:/cluster-b.conf
+      - store:/store
+      - logs:/log
+
+
+  nats-streaming-c:
+    container_name: stan-c
+    image: nats-streaming:latest
+    hostname: stan-c
+    command: "-sc /cluster-c.conf --cluster_raft_logging -SD -D -l /log/stan-c"
+    networks: 
+      panther:
+        aliases:
+          - c
+          - "stan-c"
+    expose:
+      - 4222
+      - 6222
+      - 8222
+    volumes:
+      - ./stan/cluster-c.conf:/cluster-c.conf
+      - store:/store
+      - logs:/log
+
+
+
+  nats-streaming-db:
+    container_name: nats-pg
+    image: nats-streaming:latest
+    depends_on:
+      - postgres
+    command: "--store sql --sql_driver postgres --sql_source 'user=nss password=nss host=postgres dbname=nss sslmode=disable' -SD -D -l /log/nats"
+    networks: 
+      panther:
+        aliases:
+          - nats-db
+          - nats-pg
+    ports:
+      - 14222:4222
+      - 14223:4223
+      - 18222:8222
+    volumes:
+      - logs:/log
+
+  postgres:
+    container_name: postgres
+    build:
+      context: Dockerfiles/postgres
+    networks: 
+      panther:
+        aliases:
+          - pg
+          - db
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  mqtt:
+    container_name: mqtt
+    image: eclipse-mosquitto
+    networks: 
+      - panther
+    ports:
+      - 1883:1883
+      - 9001:9001
+
+volumes:
+  db-data:
+  cluster:
+  store:
+  logs:
+
+networks: 
+  panther:
+  cluster:
